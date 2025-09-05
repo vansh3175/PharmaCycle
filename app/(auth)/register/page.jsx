@@ -25,52 +25,61 @@ export default function RegisterPage() {
     })
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setMessage(null)
+    const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage(null);
 
-    // Basic validation
+    // Basic client-side validation first
     if (formData.password !== formData.confirmPassword) {
-      setMessage({ type: "error", text: "Passwords do not match!" })
-      setIsLoading(false)
-      return
+      setMessage({ type: "error", text: "Passwords do not match!" });
+      return;
     }
-
     if (formData.password.length < 6) {
-      setMessage({ type: "error", text: "Password must be at least 6 characters long!" })
-      setIsLoading(false)
-      return
+      setMessage({ type: "error", text: "Password must be at least 6 characters long!" });
+      return;
     }
 
-    // Console log the form data as requested
-    console.log("Registration attempt:", {
-      name: formData.name,
-      email: formData.email,
-      password: "***hidden***", // Don't log actual password
-    })
+    setIsLoading(true);
 
-    // Simulate API call delay
-    setTimeout(() => {
-      // Dummy success/failure logic (95% success rate for demo)
-      const isSuccess = Math.random() > 0.05
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Only send the necessary fields, not confirmPassword
+        body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password
+        }),
+      });
 
-      if (isSuccess) {
-        setMessage({ type: "success", text: "Account created successfully! Redirecting to dashboard..." })
-        console.log("Registration successful for:", formData.email)
+      const data = await response.json();
 
-        // Redirect to dashboard after 2 seconds
+      if (response.ok) {
+        // Success
+        setMessage({ type: 'success', text: 'Account created! Redirecting...' });
+        localStorage.setItem('pharma-cycle-token', data.token); // Store token
+        
+        // Redirect after a short delay
         setTimeout(() => {
-          window.location.href = "/dashboard"
-        }, 2000)
-      } else {
-        setMessage({ type: "error", text: "Registration failed. Email might already be in use." })
-        console.log("Registration failed for:", formData.email)
-      }
+          window.location.href = '/dashboard';
+        }, 1500);
 
-      setIsLoading(false)
-    }, 1500)
-  }
+      } else {
+        // Handle server-side errors (e.g., email already exists)
+        setMessage({ type: 'error', text: data.message || 'An error occurred.' });
+      }
+    } catch (error) {
+      // Handle network errors
+      console.error('Registration request failed:', error);
+      setMessage({ type: 'error', text: 'Could not connect to the server. Please try again later.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

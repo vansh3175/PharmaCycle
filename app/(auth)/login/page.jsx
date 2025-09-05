@@ -23,35 +23,45 @@ export default function LoginPage() {
     })
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setMessage(null)
+   const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage(null);
 
-    // Console log the form data as requested
-    console.log("Login attempt:", formData)
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-    // Simulate API call delay
-    setTimeout(() => {
-      // Dummy success/failure logic (90% success rate for demo)
-      const isSuccess = Math.random() > 0.1
+      const data = await response.json();
 
-      if (isSuccess) {
-        setMessage({ type: "success", text: "Login successful! Redirecting to dashboard..." })
-        console.log("Login successful for:", formData.email)
-
-        // Redirect to dashboard after 2 seconds
+      if (response.ok) {
+        // Success
+        setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
+        localStorage.setItem('pharma-cycle-token', data.token); // Store token
+        
+        // Redirect after a short delay
         setTimeout(() => {
-          window.location.href = "/dashboard"
-        }, 2000)
-      } else {
-        setMessage({ type: "error", text: "Invalid credentials. Please try again." })
-        console.log("Login failed for:", formData.email)
-      }
+          window.location.href = '/dashboard'; 
+        }, 1500);
 
-      setIsLoading(false)
-    }, 1500)
-  }
+      } else {
+        // Handle server-side errors (e.g., wrong password)
+        setMessage({ type: 'error', text: data.message || 'An error occurred.' });
+      }
+    } catch (error) {
+      // Handle network errors (e.g., server is down)
+      console.error('Login request failed:', error);
+      setMessage({ type: 'error', text: 'Could not connect to the server. Please try again later.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
