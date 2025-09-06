@@ -35,11 +35,20 @@ export async function GET(req) {
         // 3. Fetch the user's disposal history
         const disposals = await Disposal.find({ user: decoded.userId })
             .sort({ createdAt: -1 }) // Sort by most recent first
-            .limit(3) // Get the last 3 for the "Recent Activity" feed
-            .populate('pharmacy', 'name'); // Optionally add pharmacy name
+            .limit(5) // Get the last 5 for the "Recent Activity" feed
+            .populate('pharmacy', 'name address city'); // Add pharmacy details
 
-        // 4. Get the total count of disposals
+        // 3.1. Fetch pending disposals separately
+        const pendingDisposals = await Disposal.find({ 
+            user: decoded.userId, 
+            status: 'Pending' 
+        })
+            .sort({ createdAt: -1 })
+            .populate('pharmacy', 'name address city');
+
+        // 4. Get the total count of disposals and completed disposals
         const totalDisposals = await Disposal.countDocuments({ user: decoded.userId });
+        const completedDisposals = await Disposal.countDocuments({ user: decoded.userId, status: 'Completed' });
 
         // 5. Calculate Environmental Impact (example calculation)
         // Let's assume each disposal saves ~0.7kg of CO2 on average
@@ -53,10 +62,12 @@ export async function GET(req) {
             },
             stats: {
                 totalDisposals: totalDisposals,
+                completedDisposals: completedDisposals,
                 pointsEarned: user.points,
                 environmentImpact: environmentImpact,
             },
             recentActivity: disposals,
+            pendingDisposals: pendingDisposals,
         };
 
         return NextResponse.json(dashboardData, { status: 200 });

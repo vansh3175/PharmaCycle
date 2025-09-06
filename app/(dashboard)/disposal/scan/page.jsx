@@ -11,12 +11,14 @@ import {
 } from "lucide-react"
 
 export default function ScanPage() {
-    const [scanStep, setScanStep] = useState("camera"); // camera, identified, confirmed
+    const [scanStep, setScanStep] = useState("camera"); // camera, identified, confirmed, post-add, summary
     const [entryMode, setEntryMode] = useState("scan"); // 'scan' or 'manual'
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [medicineData, setMedicineData] = useState(null);
     const [quantity, setQuantity] = useState(1);
+    const [medicineList, setMedicineList] = useState([]);
+    const [addedMsg, setAddedMsg] = useState("");
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const router = useRouter();
@@ -93,28 +95,31 @@ export default function ScanPage() {
         }
     };
 
-    const createDisposalPass = async (medData, qty) => {
-        setIsSubmitting(true);
-        setError(null);
-        const token = localStorage.getItem('pharma-cycle-token');
-        try {
-            const res = await fetch('/api/scan/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ medicineData: medData, quantity: qty })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to create disposal pass.");
+    // Add medicine to list and show message/buttons
+    const addMedicineToList = (medData, qty) => {
+        const newItem = {
+            id: Date.now(),
+            ...medData,
+            quantity: qty,
+        };
+        const updatedList = [...medicineList, newItem];
+        setMedicineList(updatedList);
+        localStorage.setItem("disposalList", JSON.stringify(updatedList));
+        setAddedMsg("Medicine added to list!");
+        setScanStep("post-add");
+    };
 
-            setScanStep("confirmed");
-            sessionStorage.setItem('disposalCode', data.disposalCode);
-            setTimeout(() => {
-                router.push("/disposal/map");
-            }, 1500);
-        } catch (err) {
-            setError(err.message);
-            setIsSubmitting(false);
-        }
+    // Remove medicine from list
+    const removeFromList = (id) => {
+        const updatedList = medicineList.filter((item) => item.id !== id);
+        setMedicineList(updatedList);
+        localStorage.setItem("disposalList", JSON.stringify(updatedList));
+    };
+
+    // Go to location input before pharmacy selection
+    const goToPharmacy = () => {
+        localStorage.setItem("disposalList", JSON.stringify(medicineList));
+        router.push("/disposal/location");
     };
 
     const handleUploadFromGallery = () => {
@@ -132,14 +137,53 @@ export default function ScanPage() {
     };
     
     // --- Render Logic ---
-    if (scanStep === "confirmed") {
+    // After adding medicine, show message and buttons
+    if (scanStep === "post-add") {
         return (
-            <div className="max-w-md mx-auto fade-in"><Card className="text-center"><CardContent className="p-8">
-                <CheckCircle className="w-16 h-16 text-primary mx-auto mb-4" />
-                <h2 className="text-2xl font-bold">Disposal Pass Created!</h2>
-                <p className="text-muted-foreground mb-6">Redirecting to find drop-off points...</p>
-                <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-            </CardContent></Card></div>
+            <div className="max-w-md mx-auto fade-in">
+                <Card className="text-center">
+                    <CardContent className="p-8">
+                        <CheckCircle className="w-16 h-16 text-primary mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold">{addedMsg}</h2>
+                        <div className="flex justify-center gap-4 mt-6">
+                            <Button onClick={() => setScanStep("camera")}>Add More Medicine</Button>
+                            <Button variant="outline" onClick={() => setScanStep("summary")}>Go to Summary List</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    // Summary list view
+    if (scanStep === "summary") {
+        return (
+            <div className="max-w-4xl mx-auto space-y-6">
+                <h1 className="text-2xl font-bold">Disposal Summary</h1>
+                <div className="space-y-4">
+                    {medicineList.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4">No medicines added yet.</p>
+                    ) : (
+                        medicineList.map((item) => (
+                            <Card key={item.id} className="hover-lift">
+                                <CardContent className="p-4 flex justify-between items-center">
+                                    <div>
+                                        <div className="font-semibold">{item.name}</div>
+                                        <div className="text-sm text-muted-foreground">Brand: {item.brand} | Type: {item.type} | Qty: {item.quantity}</div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => removeFromList(item.id)}>
+                                        Remove
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))
+                    )}
+                </div>
+                <div className="flex gap-4 mt-6">
+                    <Button onClick={() => setScanStep("camera")}>Add More Medicine</Button>
+                    <Button variant="outline" onClick={goToPharmacy} disabled={medicineList.length === 0}>Find Drop-off Points</Button>
+                </div>
+            </div>
         );
     }
     
@@ -181,8 +225,8 @@ export default function ScanPage() {
                                 <p>Name: {medicineData.name}</p>
                                 <p>Brand: {medicineData.brand}</p>
                                 <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, +e.target.value))} />
-                                <Button onClick={() => createDisposalPass(medicineData, quantity)} disabled={isSubmitting}>
-                                    {isSubmitting ? 'Confirming...' : 'Confirm & Find Drop-off Point'}
+                                <Button onClick={() => { addMedicineToList(medicineData, quantity); }} disabled={isSubmitting}>
+                                    {isSubmitting ? 'Adding...' : 'Add Medicine to List'}
                                 </Button>
                             </CardContent></Card>
                          </div>
@@ -200,8 +244,8 @@ export default function ScanPage() {
                                 <Label htmlFor="quantity" className="py-4" >Quantity</Label>
                                 <Input id="quantity" type="number" value={manualForm.quantity} onChange={(e) => setManualForm({...manualForm, quantity: Math.max(1, +e.target.value)})} />
                             </div>
-                            <Button onClick={() => createDisposalPass(manualForm, manualForm.quantity)} disabled={isSubmitting || !manualForm.name}>
-                                {isSubmitting ? <><Loader2 className="mr-2 w-4 h-4 animate-spin" />Confirming...</> : <><MapPin className="mr-2 w-4 h-4" />Confirm & Find Drop-off Point</>}
+                            <Button onClick={() => { addMedicineToList(manualForm, manualForm.quantity); }} disabled={isSubmitting || !manualForm.name}>
+                                {isSubmitting ? <><Loader2 className="mr-2 w-4 h-4 animate-spin" />Adding...</> : <>Add Medicine to List</>}
                             </Button>
                              <Button variant="link" className="w-full mt-2" onClick={() => { setEntryMode('scan'); setError(null); }}>
                                 Switch to AI Scanner
