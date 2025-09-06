@@ -1,0 +1,9 @@
+[
+  { "brand": "Crocin Advance", "generic": "Paracetamol 500mg", "category": "Painkiller", "manufacturer": "GSK" },
+  { "brand": "Calpol 500", "generic": "Paracetamol 500mg", "category": "Painkiller", "manufacturer": "GSK" },
+  { "brand": "Benadryl", "generic": "Diphenhydramine", "category": "Cough Syrup", "manufacturer": "J&J" },
+  { "brand": "Zyrtec", "generic": "Cetirizine 10mg", "category": "Antihistamine", "manufacturer": "Dr. Reddy's" },
+  { "brand": "Novamox", "generic": "Amoxicillin 250mg", "category": "Antibiotic", "manufacturer": "Cipla" },
+  { "brand": "Omez", "generic": "Omeprazole 20mg", "category": "Antacid", "manufacturer": "Dr. Reddy's" },
+  { "brand": "Glycomet", "generic": "Metformin 500mg", "category": "Diabetes", "manufacturer": "USV" }
+]
