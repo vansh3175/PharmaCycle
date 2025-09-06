@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Scan, History, Gift, TrendingUp, Calendar, MapPin, Award, Leaf, Users, ChevronRight, Loader2, AlertTriangle } from "lucide-react"
+import { Scan, History, Gift, TrendingUp, Calendar, MapPin, Award, Leaf, Users, ChevronRight, Loader2, AlertTriangle, Clock } from "lucide-react"
 
 // A simple utility to format dates
 const formatDate = (dateString) => {
@@ -17,6 +17,7 @@ export default function DashboardPage() {
     const [user, setUser] = useState(null);
     const [stats, setStats] = useState(null);
     const [recentActivity, setRecentActivity] = useState([]);
+    const [pendingDisposals, setPendingDisposals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -52,7 +53,8 @@ export default function DashboardPage() {
                 const data = await res.json();
                 setUser(data.user);
                 setStats(data.stats);
-                setRecentActivity(data.recentActivity);
+                setRecentActivity(data.recentActivity.filter(activity => activity.status === 'Completed'));
+                setPendingDisposals(data.pendingDisposals || []);
 
             } catch (err) {
                 setError(err.message);
@@ -118,13 +120,13 @@ export default function DashboardPage() {
             </Card>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="hover-lift">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-muted-foreground text-sm font-medium">Total Disposals</p>
-                                <p className="text-3xl font-bold text-foreground">{stats?.totalDisposals}</p>
+                                <p className="text-3xl font-bold text-foreground">{stats?.totalDisposals || 0}</p>
                             </div>
                             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                                 <Scan className="w-6 h-6 text-primary" />
@@ -137,8 +139,22 @@ export default function DashboardPage() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
+                                <p className="text-muted-foreground text-sm font-medium">Completed</p>
+                                <p className="text-3xl font-bold text-foreground">{stats?.completedDisposals || 0}</p>
+                            </div>
+                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <Award className="w-6 h-6 text-green-600" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover-lift">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
                                 <p className="text-muted-foreground text-sm font-medium">Points Earned</p>
-                                <p className="text-3xl font-bold text-foreground">{stats?.pointsEarned}</p>
+                                <p className="text-3xl font-bold text-foreground">{stats?.pointsEarned || 0}</p>
                             </div>
                              <div className="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
                                 <Gift className="w-6 h-6 text-secondary" />
@@ -151,12 +167,8 @@ export default function DashboardPage() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-muted-foreground text-sm font-medium">Environmental Impact</p>
-                                <p className="text-3xl font-bold text-foreground">{stats?.environmentImpact}kg</p>
-                                <p className="text-primary text-sm flex items-center mt-1">
-                                    <Leaf className="w-4 h-4 mr-1" />
-                                    CO₂ saved
-                                </p>
+                                <p className="text-muted-foreground text-sm font-medium">CO₂ Saved</p>
+                                <p className="text-3xl font-bold text-foreground">{stats?.environmentImpact || 0}kg</p>
                             </div>
                             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                                 <Leaf className="w-6 h-6 text-primary" />
@@ -166,13 +178,58 @@ export default function DashboardPage() {
                 </Card>
             </div>
 
+            {/* Pending Disposals Section */}
+            {pendingDisposals.length > 0 && (
+                <Card className="border-orange-200 bg-orange-50 hover-lift">
+                    <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-xl text-orange-800 flex items-center">
+                                <Clock className="w-5 h-5 mr-2" />
+                                Pending Disposals
+                            </CardTitle>
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                                {pendingDisposals.length} pending
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {pendingDisposals.map((disposal) => (
+                            <div key={disposal._id} className="flex items-center justify-between p-4 bg-white rounded-lg border border-orange-200">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
+                                    <div>
+                                        <p className="font-semibold text-orange-800">
+                                            Code: {disposal.disposalCode}
+                                        </p>
+                                        <p className="text-sm text-orange-600">
+                                            {disposal.items?.length || 0} items • {disposal.pharmacy?.name || 'Pharmacy not assigned'}
+                                        </p>
+                                        <p className="text-xs text-orange-500">
+                                            Created {formatDate(disposal.createdAt)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Badge variant="outline" className="border-orange-300 text-orange-700">
+                                    Awaiting Verification
+                                </Badge>
+                            </div>
+                        ))}
+                        <div className="text-center pt-2">
+                            <p className="text-sm text-orange-600">
+                                💡 Present your disposal codes at the selected pharmacies for verification
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Recent Activity */}
                 <Card className="hover-lift">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="flex items-center">
                             <History className="w-5 h-5 mr-2 text-primary" />
-                            Recent Activity
+                            Recent Completed Disposals
                         </CardTitle>
                         <Button variant="ghost" size="sm" asChild>
                            <a href="/history">View All <ChevronRight className="ml-1 w-4 h-4" /></a>
@@ -186,19 +243,25 @@ export default function DashboardPage() {
                                         <Scan className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <p className="font-medium text-foreground">{activity.items[0]?.medicineName || 'Disposal Item'}</p>
+                                        <p className="font-medium text-foreground">
+                                            {activity.items && activity.items.length > 0 ? activity.items[0].medicineName : 'Medicine Disposal'}
+                                            {activity.items && activity.items.length > 1 && ` (+${activity.items.length - 1} more)`}
+                                        </p>
                                         <p className="text-sm text-muted-foreground">
-                                           {activity.pharmacy?.name || 'Pending Verification'} • {formatDate(activity.createdAt)}
+                                            {activity.pharmacy?.name || 'Pending Verification'} • {formatDate(activity.createdAt)}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Code: {activity.disposalCode}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    {activity.status === 'Completed' &&
-                                        <Badge variant="secondary" className="mb-1">
-                                            +50 pts
-                                        </Badge>
-                                    }
-                                    <p className={`text-xs font-semibold ${activity.status === 'Completed' ? 'text-primary' : 'text-amber-500'}`}>{activity.status}</p>
+                                    <Badge variant={activity.status === 'Completed' ? 'default' : 'secondary'} className="mb-1">
+                                        {activity.status}
+                                    </Badge>
+                                    <p className="text-xs text-muted-foreground">
+                                        +{activity.points || (activity.items ? activity.items.length * 10 : 10)} pts
+                                    </p>
                                 </div>
                             </div>
                         )) : (

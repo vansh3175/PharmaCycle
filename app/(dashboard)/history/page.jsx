@@ -26,7 +26,7 @@ export default function HistoryPage() {
             }
 
             try {
-                const res = await fetch('/api/history', {
+                const res = await fetch('/api/disposal', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -53,15 +53,16 @@ export default function HistoryPage() {
     }, []);
 
     const filteredHistory = disposalHistory.filter((item) => {
-        const itemMedicineName = item.items[0]?.medicineName || '';
-        const matchesSearch = itemMedicineName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFilter = filterStatus === "all" || item.status.toLowerCase() === filterStatus;
+        const itemMedicineName = item.items && item.items.length > 0 ? item.items[0].medicineName : '';
+        const matchesSearch = itemMedicineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             item.disposalCode.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFilter = filterStatus === "all" || item.status.toLowerCase() === filterStatus.toLowerCase();
         return matchesSearch && matchesFilter;
     });
 
     const totalStats = {
         totalDisposals: disposalHistory.length,
-        totalPoints: disposalHistory.filter(d => d.status === 'Completed').length * 50, // Assuming 50 points per completed disposal
+        totalPoints: disposalHistory.reduce((sum, disposal) => sum + (disposal.points || disposal.items.length * 10), 0),
         totalCO2Saved: (disposalHistory.length * 0.7).toFixed(1),
         completedDisposals: disposalHistory.filter((item) => item.status === "Completed").length,
     };
@@ -132,12 +133,10 @@ export default function HistoryPage() {
                 <Card>
                     <CardContent className="p-4 flex items-center justify-between">
                          <div>
-                            <p className="text-sm text-muted-foreground">Success Rate</p>
-                            <p className="text-2xl font-bold text-foreground">
-                                {totalStats.totalDisposals > 0 ? Math.round((totalStats.completedDisposals / totalStats.totalDisposals) * 100) : 0}%
-                            </p>
+                            <p className="text-sm text-muted-foreground">Completed</p>
+                            <p className="text-2xl font-bold text-foreground">{totalStats.completedDisposals}</p>
                         </div>
-                        <TrendingUp className="w-8 h-8 text-primary" />
+                        <TrendingUp className="w-8 h-8 text-green-600" />
                     </CardContent>
                 </Card>
             </div>
@@ -149,7 +148,7 @@ export default function HistoryPage() {
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by medicine name..."
+                                placeholder="Search by medicine name or disposal code..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="pl-10"
@@ -188,10 +187,17 @@ export default function HistoryPage() {
                                     </div>
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-semibold text-foreground">{item.items[0]?.medicineName || 'N/A'}</h3>
+                                            <h3 className="font-semibold text-foreground">
+                                                {item.items && item.items.length > 0 ? item.items[0].medicineName : 'Medicine'}
+                                                {item.items && item.items.length > 1 && ` (+${item.items.length - 1} more)`}
+                                            </h3>
+                                            <Badge variant="outline" className="text-xs">
+                                                {item.disposalCode}
+                                            </Badge>
                                         </div>
                                         <p className="text-sm text-muted-foreground mb-2">
-                                            {item.items[0]?.qty || 1} {item.items[0]?.unit || 'unit'}
+                                            Total Items: {item.items ? item.items.length : 0} | 
+                                            Total Qty: {item.items ? item.items.reduce((sum, med) => sum + (med.qty || 1), 0) : 0}
                                         </p>
                                         <div className="flex items-center text-sm text-muted-foreground">
                                             <Calendar className="w-4 h-4 mr-1" />
@@ -199,8 +205,13 @@ export default function HistoryPage() {
                                                 year: "numeric", month: "short", day: "numeric",
                                             })}
                                             <MapPin className="w-4 h-4 ml-4 mr-1" />
-                                            {item.pharmacy ? `${item.pharmacy.name}, ${item.pharmacy.city}`: 'Pending Drop-off'}
+                                            {item.pharmacy ? `${item.pharmacy.name}${item.pharmacy.city ? ', ' + item.pharmacy.city : ''}`: 'Pending Drop-off'}
                                         </div>
+                                        {item.userLocation && (
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                                Location: {item.userLocation.city}, {item.userLocation.state}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -210,12 +221,18 @@ export default function HistoryPage() {
                                             {item.status}
                                         </Badge>
                                         <div className="flex items-center gap-4 text-sm">
-                                            {item.status === 'Completed' &&
+                                            <div className="text-center">
+                                                <p className="font-semibold text-secondary">
+                                                    +{item.points || (item.items ? item.items.length * 10 : 10)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">Points</p>
+                                            </div>
+                                            {item.status === 'Completed' && (
                                                 <div className="text-center">
-                                                    <p className="font-semibold text-secondary">+50</p>
-                                                    <p className="text-xs text-muted-foreground">Points</p>
+                                                    <Award className="w-4 h-4 text-yellow-500 mx-auto" />
+                                                    <p className="text-xs text-muted-foreground">Completed</p>
                                                 </div>
-                                            }
+                                            )}
                                         </div>
                                     </div>
                                 </div>
